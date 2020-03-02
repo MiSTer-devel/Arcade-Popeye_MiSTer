@@ -1,0 +1,34 @@
+<misterromdescription>
+	<name>Popeye</name>
+	<mameversion>0000</mameversion>
+	<mratimestamp>202003010000</mratimestamp>
+	<year>1982</year>
+	<manufacturer>Nintendo</manufacturer>
+	<category>Action</category>
+	<rbf>Popeye</rbf>
+	<setname>popeye</setname>
+	<switches default="20,45,00">
+		<dip bits="5,6"   name="Version" ids="Nintendo Am.Inc.,Nintendo,Nintendo Co Ltd,Nintendo Am.Inc."/>
+		<dip bits="8,9"   name="Live" ids="1,2,3,4"/>
+		<dip bits="10,11" name="Difficulty" ids="Easy,Medium-,Medium+,Hard"/>
+		<dip bits="12,13" name="Bonus" ids="40.000,60.000,80.000,None"/>
+		<dip bits="14"    name="Music" ids="Silent,On"/>
+		<dip bits="16"    name="Service" ids="No,Yes"/>
+	</switches>
+	<buttons names="Kick,Start 1P,Start 2P,Coin" default="A,Start,Select,R"/>
+	<rom index="0" zip="popeye.zip" md5="D8CA94DBDB94BD3F06D01DE96854ACC9" type="merged|nonmerged">
+		<part name ="tpp2-c.7a"/>
+		<part name ="tpp2-c.7b"/>
+		<part name ="tpp2-c.7c"/>
+		<part name ="tpp2-c.7e"/>
+		<part name ="tpp2-v.1e"/>
+		<part name ="tpp2-v.1f"/>
+		<part name ="tpp2-v.1j"/>
+		<part name ="tpp2-v.1k"/>
+		<part name ="tpp2-v.5n"/>
+		<part name ="tpp2-c.5b"/>
+		<part name ="tpp2-c.5a"/>
+		<part name ="tpp2-c.3a"/>
+		<part name ="tpp2-c.4a"/>
+	</rom>
+</misterromdescription>
