@@ -386,7 +386,7 @@ architecture struct of popeye is
  signal clock_vid : std_logic;
  signal clock_vidn: std_logic;
  signal clock_cnt1: std_logic_vector(3 downto 0) := "0000";
- signal clock_cnt2: std_logic_vector(3 downto 0) := "0000";
+ signal clock_cnt2: std_logic_vector(4 downto 0) := "00000";
 
  signal hcnt    : std_logic_vector(9 downto 0) := (others=>'0'); -- horizontal counter
  signal hflip   : std_logic_vector(9 downto 0) := (others=>'0'); -- horizontal counter flip
