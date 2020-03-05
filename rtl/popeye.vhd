@@ -360,13 +360,17 @@ port(
  left1          : in std_logic;
  up1            : in std_logic;
  down1          : in std_logic;
- fire1          : in std_logic;
+ fire10         : in std_logic;
+ fire11         : in std_logic;
  
  right2         : in std_logic;
  left2          : in std_logic;
  up2            : in std_logic;
  down2          : in std_logic;
- fire2          : in std_logic;
+ fire20         : in std_logic;
+ fire21         : in std_logic;
+
+ skyskipr       : in std_logic;
 
  sw1            : in std_logic_vector(6 downto 0);
  sw2            : in std_logic_vector(7 downto 0);
@@ -414,12 +418,13 @@ architecture struct of popeye is
  signal cpu_rfsh_n  : std_logic;
  
  signal nmi_enable  : std_logic;
+ signal no_nmi      : std_logic;
   
  signal cpu_rom_addr   : std_logic_vector(14 downto 0);
  signal cpu_rom_do     : std_logic_vector( 7 downto 0);
  signal cpu_rom_do_swp : std_logic_vector( 7 downto 0);
  
- signal wram_addr   : std_logic_vector(10 downto 0);
+ signal wram_addr   : std_logic_vector(11 downto 0);
  signal wram_we     : std_logic;
  signal wram_do     : std_logic_vector( 7 downto 0);
  signal wram_do_r   : std_logic_vector( 7 downto 0);
@@ -436,12 +441,12 @@ architecture struct of popeye is
  signal ch_vid       : std_logic;
  signal ch_color     : std_logic_vector( 4 downto 0);
  
- signal hoffset      : std_logic_vector( 7 downto 0);
+ signal hoffset      : std_logic_vector( 8 downto 0);
  signal hshift       : std_logic_vector( 9 downto 0);
  signal voffset      : std_logic_vector( 7 downto 0);
  signal vshift       : std_logic_vector( 9 downto 0);
 
- signal bg_ram_addr    : std_logic_vector(11 downto 0);
+ signal bg_ram_addr    : std_logic_vector(12 downto 0);
  signal bg_ram_lnib_we : std_logic;
  signal bg_ram_lnib_do : std_logic_vector(3 downto 0);
  signal bg_ram_hnib_we : std_logic;
@@ -589,7 +594,7 @@ begin
 		hcnt  <= (others=>'0');
 		vcnt  <= (others=>'0');
 		top_frame <= '0';
-	else 
+	else
 		if rising_edge(clock_vid) then
 			if pix_ena = '1' then
 		
@@ -597,7 +602,6 @@ begin
 				if hcnt = 639 then
 					hcnt <= (others=>'0');
 					vcnt <= vcnt + 1;
---					if (vcnt = 511 and tv15Khz_mode = '0') or (vcnt = 255 and tv15Khz_mode = '1') then
 					if (vcnt = 525 and tv15Khz_mode = '0') or (vcnt = 262 and tv15Khz_mode = '1') then -- extension to classic video standard
 						vcnt <= (others=>'0');
 						top_frame <= not top_frame;
@@ -614,9 +618,9 @@ begin
 					-- tune 31kHz horizontal screen position here	
 					if hcnt = 512+13+12 then video_hs <= '0'; end if; -- front porch 16/25*20 = 13
 					if hcnt = 512+90+12 then video_hs <= '1'; end if; -- sync pulse  96/25*20 = 77
-																				       -- back porch  48/25*20 = 38					
+																				       -- back porch  48/25*20 = 38
 					video_hblank <= '1';
-					if hcnt >= 2+16 and  hcnt < 514+16 and
+					if hcnt >= 0+16 and  hcnt < 512+16 and
 						vcnt >= 32 and  vcnt < 480 then video_hblank <= '0';
 					end if;
 				
@@ -628,81 +632,75 @@ begin
 				
 				else -- interlaced mode
 				 
-				if hcnt = 530+18 then            -- tune 15KHz horizontal screen position here
-					hs_cnt <= (others => '0');
-					if (vcnt = 248) then          -- tune 15KHz vertical screen position here
-						vs_cnt <= (others => '0');
-					else
-						vs_cnt <= vs_cnt +1;
+					if hcnt = 530+18 then            -- tune 15KHz horizontal screen position here
+						hs_cnt <= (others => '0');
+						if (vcnt = 248) then          -- tune 15KHz vertical screen position here
+							vs_cnt <= (others => '0');
+						else
+							vs_cnt <= vs_cnt +1;
+						end if;
+					else 
+						hs_cnt <= hs_cnt + 1;
+					end if;
+
+					if hcnt = 0+16 then
+						video_hblank <= '0';
+						video_vblank <= '1';
+						if vcnt >= 16 and vcnt < 240 then
+							video_vblank <= '0';
+						end if;
+					end if;
+
+					if hcnt = 512+16 then
+						video_hblank <= '1';
+					end if;
+
+					if    hs_cnt =  0 then hsync0 <= '0'; video_hs <= '0';
+					elsif hs_cnt = 47 then hsync0 <= '1'; video_hs <= '1';
 					end if;
 					
---					if vcnt = 260 then video_vs <= '0'; end if;
---					if vcnt = 262 then video_vs <= '1'; end if;
-
-				else 
-					hs_cnt <= hs_cnt + 1;
-				end if;
-								
-				if hcnt = 2+16 then
-					video_hblank <= '0';
-					video_vblank <= '1';
-					if vcnt >= 16 and vcnt < 241 then
-						video_vblank <= '0';
+					if    hs_cnt =      0  then hsync1 <= '0';
+					elsif hs_cnt =     23  then hsync1 <= '1';
+					elsif hs_cnt = 320+ 0  then hsync1 <= '0';
+					elsif hs_cnt = 320+23  then hsync1 <= '1';
 					end if;
-				end if;
+			
+					if    hs_cnt =      0  then hsync2 <= '0';
+					elsif hs_cnt = 320-47  then hsync2 <= '1';
+					elsif hs_cnt = 320     then hsync2 <= '0';
+					elsif hs_cnt = 640-47  then hsync2 <= '1';
+					end if;
 
-				if hcnt = 514+16-1 then
-					video_hblank <= '1';
-				end if;
+					if    hs_cnt =      0  then hsync3 <= '0';
+					elsif hs_cnt =     23  then hsync3 <= '1';
+					elsif hs_cnt = 320     then hsync3 <= '0';
+					elsif hs_cnt = 640-47  then hsync3 <= '1';
+					end if;
 
-				if    hs_cnt =  0 then hsync0 <= '0'; video_hs <= '0';
-				elsif hs_cnt = 47 then hsync0 <= '1'; video_hs <= '1';
-				end if;
-				
-				if    hs_cnt =      0  then hsync1 <= '0';
-				elsif hs_cnt =     23  then hsync1 <= '1';
-				elsif hs_cnt = 320+ 0  then hsync1 <= '0';
-				elsif hs_cnt = 320+23  then hsync1 <= '1';
-				end if;
-		
-				if    hs_cnt =      0  then hsync2 <= '0';
-				elsif hs_cnt = 320-47  then hsync2 <= '1';
-				elsif hs_cnt = 320     then hsync2 <= '0';
-				elsif hs_cnt = 640-47  then hsync2 <= '1';
-				end if;
+					if    hs_cnt =      0  then hsync4 <= '0';
+					elsif hs_cnt = 320-47  then hsync4 <= '1';
+					elsif hs_cnt = 320     then hsync4 <= '0';
+					elsif hs_cnt = 320+23  then hsync4 <= '1';
+					end if;
 
-				
-				if    hs_cnt =      0  then hsync3 <= '0';
-				elsif hs_cnt =     23  then hsync3 <= '1';
-				elsif hs_cnt = 320     then hsync3 <= '0';
-				elsif hs_cnt = 640-47  then hsync3 <= '1';
-				end if;
+					if     vs_cnt =  1 then video_csync <= hsync1;
+					elsif  vs_cnt =  2 then video_csync <= hsync1;
+					elsif  vs_cnt =  3 then video_csync <= hsync1;
+					elsif  vs_cnt =  4 and top_frame = '1' then video_csync <= hsync3;
+					elsif  vs_cnt =  4 and top_frame = '0' then video_csync <= hsync1;
+					elsif  vs_cnt =  5 then video_csync <= hsync2;
+					elsif  vs_cnt =  6 then video_csync <= hsync2;
+					elsif  vs_cnt =  7 and  top_frame = '1' then video_csync <= hsync4;
+					elsif  vs_cnt =  7 and  top_frame = '0' then video_csync <= hsync2;
+					elsif  vs_cnt =  8 then video_csync <= hsync1;
+					elsif  vs_cnt =  9 then video_csync <= hsync1;
+					elsif  vs_cnt = 10 then video_csync <= hsync1;
+					elsif  vs_cnt = 11 then video_csync <= hsync0;
+					else                    video_csync <= hsync0;
+					end if;
 
-				if    hs_cnt =      0  then hsync4 <= '0';
-				elsif hs_cnt = 320-47  then hsync4 <= '1';
-				elsif hs_cnt = 320     then hsync4 <= '0';
-				elsif hs_cnt = 320+23  then hsync4 <= '1';
-				end if;
-				
-				
-				if     vs_cnt =  1 then video_csync <= hsync1;
-				elsif  vs_cnt =  2 then video_csync <= hsync1;
-				elsif  vs_cnt =  3 then video_csync <= hsync1;
-				elsif  vs_cnt =  4 and top_frame = '1' then video_csync <= hsync3;
-				elsif  vs_cnt =  4 and top_frame = '0' then video_csync <= hsync1;
-				elsif  vs_cnt =  5 then video_csync <= hsync2;
-				elsif  vs_cnt =  6 then video_csync <= hsync2;
-				elsif  vs_cnt =  7 and  top_frame = '1' then video_csync <= hsync4;
-				elsif  vs_cnt =  7 and  top_frame = '0' then video_csync <= hsync2;
-				elsif  vs_cnt =  8 then video_csync <= hsync1;
-				elsif  vs_cnt =  9 then video_csync <= hsync1;
-				elsif  vs_cnt = 10 then video_csync <= hsync1;
-				elsif  vs_cnt = 11 then video_csync <= hsync0;
-				else                    video_csync <= hsync0;
-				end if;				
-
-				if vcnt = 260 then video_vs <= '0'; end if;
-				if vcnt = 262 then video_vs <= '1'; end if;
+					if vcnt = 250 then video_vs <= '0'; end if;
+					if vcnt = 252 then video_vs <= '1'; end if;
 
 				end if;
 
@@ -716,24 +714,27 @@ end process;
 --------------------
 init_eo <= top_frame;
 
-input_0 <= "111" & fire1 & down1 & up1 & left1 & right1;
-input_1 <= "111" & fire2 & down2 & up2 & left2 & right2;
-input_2 <= coin & service & '1' & init_eo & start2 & start1 & "11";
+input_0 <= fire11 & "00" & fire10 & down1 & up1 & left1 & right1;
+input_1 <= fire21 & "00" & fire20 & down2 & up2 & left2 & right2;
+input_2 <= coin & service & '0' & init_eo & start2 & start1 & "00";
 
 ------------------------------------------
 -- cpu data input with address decoding --
 ------------------------------------------
 cpu_rom_addr <= 
+	(cpu_addr(14 downto 10) & cpu_addr(8 downto 7) & cpu_addr(0) & cpu_addr(1) & cpu_addr(2) & cpu_addr(4) & cpu_addr(5) & cpu_addr(9) & cpu_addr(3) & cpu_addr(6)) xor ("000" & x"0FC") when skyskipr = '1' else
 	(cpu_addr(14 downto 10) & cpu_addr(8 downto 6) & cpu_addr(3) & cpu_addr(9) & cpu_addr(5 downto 4) & cpu_addr(2 downto 0)) xor ("000" & x"03F");
 
 cpu_rom_do_swp <=
 	cpu_rom_do(3) & cpu_rom_do(4) & cpu_rom_do(2) & cpu_rom_do(5) &
 	cpu_rom_do(1) & cpu_rom_do(6) & cpu_rom_do(0) & cpu_rom_do(7);
 	
-cpu_di <= cpu_rom_do_swp	 when cpu_mreq_n = '0' and cpu_addr(15 downto 12) < X"8" else    -- program rom 0000-7FFF 32Ko
-			 wram_do_r   		 when cpu_mreq_n = '0' and (cpu_addr and X"E000") = x"8000" else -- work    ram 8000-87FF  2Ko + mirroring 1800
-			 protection_do     when cpu_mreq_n = '0' and (cpu_addr and X"FFFF") = x"E000" else -- protection E000
-			 X"00"             when cpu_mreq_n = '0' and (cpu_addr and X"FFFF") = x"E001" else -- protection E001
+cpu_di <= cpu_rom_do_swp	 when cpu_mreq_n  = '0' and cpu_addr(15 downto 12) < X"8" else    -- program rom 0000-7FFF 32Ko
+			 wram_do_r   		 when cpu_mreq_n  = '0' and (cpu_addr and X"F800") = x"8000" and skyskipr = '1' else -- work    ram 8000-87FF  2Ko
+			 wram_do_r   		 when cpu_mreq_n  = '0' and (cpu_addr and X"FC00") = x"8C00" and skyskipr = '1' else -- work    ram 8C00-8FFF  1Ko
+			 wram_do_r   		 when cpu_mreq_n  = '0' and (cpu_addr and X"E000") = x"8000" and skyskipr = '0' else -- work    ram 8000-87FF  2Ko + mirroring 1800
+			 protection_do     when cpu_mreq_n  = '0' and (cpu_addr and X"FFFF") = x"E000" else -- protection E000
+			 X"00"             when cpu_mreq_n  = '0' and (cpu_addr and X"FFFF") = x"E001" else -- protection E001
    		 input_0           when cpu_ioreq_n = '0' and (cpu_addr(1 downto 0) = "00") else
    		 input_1           when cpu_ioreq_n = '0' and (cpu_addr(1 downto 0) = "01") else
    		 input_2           when cpu_ioreq_n = '0' and (cpu_addr(1 downto 0) = "10") else
@@ -743,9 +744,10 @@ cpu_di <= cpu_rom_do_swp	 when cpu_mreq_n = '0' and cpu_addr(15 downto 12) < X"8
 ------------------------------------------
 -- write enable / ram access from CPU --
 ------------------------------------------
-wram_addr <= cpu_addr(10 downto 0) when hcnt(0) = '0' else '1' & sp_ram_addr(9 downto 0);
+wram_addr <= (skyskipr and cpu_addr(11)) & cpu_addr(10 downto 0) when hcnt(0) = '0' else skyskipr & '1' & sp_ram_addr(9 downto 0);
 
-wram_we         <= '1' when cpu_mreq_n = '0' and cpu_wr_n = '0' and (cpu_addr and x"E000") = x"8000" and hcnt(0) = '0' else '0';
+wram_we         <= '1' when cpu_mreq_n = '0' and cpu_wr_n = '0' and (cpu_addr and x"F000") = x"8000" and hcnt(0) = '0' and skyskipr = '1' else 
+                   '1' when cpu_mreq_n = '0' and cpu_wr_n = '0' and (cpu_addr and x"E000") = x"8000" and hcnt(0) = '0' else '0';
 ch_ram_txt_we   <= '1' when cpu_mreq_n = '0' and cpu_wr_n = '0' and (cpu_addr and x"EC00") = x"A000" and hcnt(0) = '0' else '0';
 ch_ram_color_we <= '1' when cpu_mreq_n = '0' and cpu_wr_n = '0' and (cpu_addr and x"EC00") = x"A400" and hcnt(0) = '0' else '0';
 bg_ram_lnib_we  <= '1' when cpu_mreq_n = '0' and cpu_wr_n = '0' and (cpu_addr and x"F000") = x"C000" and hcnt(0) = '0' else '0';
@@ -806,6 +808,8 @@ process (clock_vid, reset)
 begin
 	if reset = '1' then 
 		nmi_enable <= '0';
+		no_nmi <= '0';
+		hoffset <= (others => '0');
 	else
 
 	if rising_edge(clock_vid) then
@@ -813,11 +817,16 @@ begin
 		cpu_wr_n_r <= cpu_wr_n;
 	
 		if cpu_mreq_n = '0' and cpu_wr_n = '0' then 
-			if (cpu_addr = x"8C00") then hoffset <= cpu_do; end if;
+			if (cpu_addr = x"8C00") then hoffset(7 downto 0) <= cpu_do; end if;
 			if (cpu_addr = x"8C01") then voffset <= cpu_do; end if;
+			if (cpu_addr = x"8C02") then hoffset(8) <= cpu_do(0) and skyskipr; end if;
 			
-			if (cpu_addr = x"8C03") then 
-				sp_palette_addr(7 downto 5) <= cpu_do(2 downto 0);
+			if (cpu_addr = x"8C03") then
+				if skyskipr = '1' then
+					sp_palette_addr(7 downto 5) <=  '0' & cpu_do(0) & cpu_do(0); --cpu_do(2 downto 0);
+				else
+					sp_palette_addr(7 downto 5) <= cpu_do(2 downto 0);
+				end if;
 				bg_palette_addr(4) <= cpu_do(3);
 			end if;
 	
@@ -834,11 +843,21 @@ begin
 		if cpu_rfsh_n = '0' and cpu_mreq_n = '0' then
 			nmi_enable <= cpu_addr(8);
 		end if;
+
+		-- trick to prevent nmi to occur during call 2f93 @3043
+		-- otherwise game crash
+		-- maybe not needed when nb scanline = 511 (31kHz) or 255 (15kHz)
+		if (cpu_addr = x"3043") and cpu_m1_n = '0' then 
+			no_nmi <= skyskipr;
+		end if;
+
+		if (cpu_addr = x"3046") and cpu_m1_n = '0' then 
+			no_nmi <= '0';
+		end if;
 		
 	end if;
 	
 	end if;
-	
 end process;
 
 protection_do <=
@@ -851,10 +870,10 @@ protection_do <=
 	(protection_data1(1 downto 0) & "000000" ) or ( "00" & protection_data0(7 downto 2))  when protection_shift = "110" else
 	(protection_data1(0 downto 0) & "0000000" ) or ( '0' & protection_data0(7 downto 1)); --   protection_shift = "111"
 
-cpu_nmi_n <= '0' when nmi_enable = '1' and video_vs = '0' else '1';
+cpu_nmi_n <= '0' when nmi_enable = '1' and no_nmi = '0' and video_vs = '0' else '1';
 
-audio_out_l <= ay_audio & X"00";
-audio_out_r <= ay_audio & X"00";
+audio_out_l <= ay_audio & ay_audio;
+audio_out_r <= ay_audio & ay_audio;
 -- 
 -- bdir bc1 (bc2 = 1)
 --  0    0 : Inactive
@@ -990,7 +1009,10 @@ end process;
 ----------------------------
 ---- background machine ----
 ----------------------------
-bg_ram_addr <= cpu_addr(11 downto 0) when hcnt(0) = '0' else vshift(7 downto 2) & hshift(8 downto 3);
+bg_ram_addr <= cpu_addr(11 downto 6) & cpu_do(7) & cpu_addr(5 downto 0) when hcnt(0) = '0' and skyskipr = '1' else
+               vshift(8 downto 3) & hshift(9 downto 3)  when hcnt(0) = '1' and skyskipr = '1' else
+               '0' & cpu_addr(11 downto 0) when hcnt(0) = '0' else
+               '0' & vshift(7 downto 2) & hshift(8 downto 3);
 
 process (clock_vid)
 begin
@@ -999,26 +1021,34 @@ begin
 		if pix_ena = '1' then
 		
 			if hcnt = 540 then -- tune background h pos w.r.t char (use odd value to keep hshift(0) = hcnt(0))
-				hshift <= '0' & hoffset & '0'; 
+				hshift <= hoffset & '0'; 
 			else
 				hshift <= hshift + 1 ;
 			end if;
 			
 			if hcnt = 540 then 
 				if tv15Khz_mode = '0' then
-				 vshift <= ('0' & voffset & '0') + vflip + ("01" & x"01"); -- tune background v pos w.r.t char
+				 vshift <= ('0' & voffset & '0') + vflip + ('0' & not skyskipr & x"01"); -- tune background v pos w.r.t char
 				else
-				 vshift <= ('0' & voffset & '0') + vflip + ("01" & x"02"); -- tune background v pos w.r.t char
+				 vshift <= ('0' & voffset & '0') + vflip + ('0' & not skyskipr & x"02"); -- tune background v pos w.r.t char
 				end if;
 			end if;
 				
 			if hcnt(0) = '1' then
 				if hcnt(1) = '1' then
-					if vshift(8) = '1' then 
-						bg_color <= bg_ram_lnib_do;
-					else 
-						bg_color <= bg_ram_hnib_do;
-					end if;	
+					if skyskipr = '1' then
+						if vshift(9) = '1' then
+							bg_color <= bg_ram_lnib_do;
+						else
+							bg_color <= (others => '0');
+						end if;
+					else
+						if vshift(8) = '1' then
+							bg_color <= bg_ram_lnib_do;
+						else
+							bg_color <= bg_ram_hnib_do;
+						end if;
+					end if;
 				end if;
 			end if;
 		
@@ -1036,7 +1066,7 @@ process (clock_vid)
 begin
 	if rising_edge(clock_vid) then
 	
-		if hoffset = x"00" then	
+		if (voffset = x"00" and skyskipr = '1') or (hoffset = x"00" and skyskipr = '0') then
 			video_r <= "000";
 			video_g <= "000";
 			video_b <= "00";
@@ -1076,7 +1106,7 @@ port map(
   INT_n   => '1', -- cpu_irq_n,
   NMI_n   => cpu_nmi_n,
   BUSRQ_n => '1',
-  --M1_n    => cpu_m1_n,
+  M1_n    => cpu_m1_n,
   MREQ_n  => cpu_mreq_n,
   IORQ_n  => cpu_ioreq_n,
   RD_n    => cpu_rd_n,
@@ -1114,11 +1144,11 @@ cpu_rom_we <= '1' when dl_wr = '1' and dl_addr(16 downto 15) = "00" else '0'; --
 
 -- working RAM   8000-87FF/8800-8FFF  2Ko
 wram : entity work.gen_ram
-generic map( dWidth => 8, aWidth => 11)
+generic map( dWidth => 8, aWidth => 12)
 port map(
  clk  => clock_vidn,
  we   => wram_we,
- addr => wram_addr(10 downto 0),
+ addr => wram_addr,
  d    => cpu_do,
  q    => wram_do
 );
@@ -1147,7 +1177,7 @@ port map(
 
 -- video RAM   C000-CFFF  4K x 4bits 
 video_ram_lnib : entity work.gen_ram
-generic map( dWidth => 4, aWidth => 12)
+generic map( dWidth => 4, aWidth => 13)
 port map(
  clk  => clock_vidn,
  we   => bg_ram_lnib_we,
@@ -1158,7 +1188,7 @@ port map(
 
 -- video RAM   D000-DFFF  4K x 4bits 
 video_ram_hnib : entity work.gen_ram
-generic map( dWidth => 4, aWidth => 12)
+generic map( dWidth => 4, aWidth => 13)
 port map(
  clk  => clock_vidn,
  we   => bg_ram_hnib_we,

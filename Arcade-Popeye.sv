@@ -104,8 +104,8 @@ localparam CONF_STR = {
 	"DIP;",
 	"-;",
 	"R0,Reset;",
-	"J1,Kick,Start 1P,Start 2P,Coin;",
-	"jn,A,Start,Select,R;",
+	"J1,Fire1,Fire2,Start 1P,Start 2P,Coin;",
+	"jn,A,B,Start,Select,R;",
 	"V,v",`BUILD_DATE
 };
 
@@ -177,6 +177,9 @@ hps_io #(.STRLEN($size(CONF_STR)>>3)) hps_io
 reg [7:0] sw[8];
 always @(posedge clk_sys) if (ioctl_wr && (ioctl_index==254) && !ioctl_addr[24:3]) sw[ioctl_addr[2:0]] <= ioctl_dout;
 
+reg [7:0] mod = 0;
+always @(posedge clk_sys) if (ioctl_wr & (ioctl_index==1)) mod <= ioctl_dout;
+
 wire       pressed = ps2_key[9];
 wire [7:0] code    = ps2_key[7:0];
 always @(posedge clk_sys) begin
@@ -193,7 +196,7 @@ always @(posedge clk_sys) begin
 			'h05: btn_start1        <= pressed; // F1
 			'h06: btn_start2        <= pressed; // F2
 			'h14: btn_fireA         <= pressed; // lctrl
-			//'h11: btn_fireB         <= pressed; // lalt
+			'h11: btn_fireB         <= pressed; // lalt
 			//'h29: btn_fireC         <= pressed; // Space
 			// JPAC/IPAC/MAME Style Codes
 			'h16: btn_start1        <= pressed; // 1
@@ -209,7 +212,7 @@ always @(posedge clk_sys) begin
 			'h23: btn_left2         <= pressed; // D
 			'h34: btn_right2        <= pressed; // G
 			'h1C: btn_fire2A        <= pressed; // A
-			//'h1B: btn_fire2B        <= pressed; // S
+			'h1B: btn_fire2B        <= pressed; // S
 			//'h21: btn_fire2C        <= pressed; // Q
 			//'h1D: btn_fire2D        <= pressed; // W
 			//'h1D: btn_fire2E        <= pressed; // W
@@ -224,7 +227,7 @@ reg btn_right  = 0;
 reg btn_down   = 0;
 reg btn_up     = 0;
 reg btn_fireA  = 0;
-//reg btn_fireB  = 0;
+reg btn_fireB  = 0;
 //reg btn_fireC  = 0;
 //reg btn_fireD  = 0;
 reg btn_coin1  = 0;
@@ -236,22 +239,22 @@ reg btn_down2  = 0;
 reg btn_left2  = 0;
 reg btn_right2 = 0;
 reg btn_fire2A = 0;
-//reg btn_fire2B = 0;
+reg btn_fire2B = 0;
 //reg btn_fire2C = 0;
 //reg btn_fire2D = 0;
 
 //wire service = sw[1][0];
 
-wire m_start1  = btn_start1 | joy[5];
-wire m_start2  = btn_start2 | joy[6];
-wire m_coin1   = btn_coin1  | btn_coin2 | joy[7];
+wire m_start1  = btn_start1 | joy[6];
+wire m_start2  = btn_start2 | joy[7];
+wire m_coin1   = btn_coin1  | btn_coin2 | joy[8];
 
 wire m_right1  = btn_right  | joy1[0];
 wire m_left1   = btn_left   | joy1[1];
 wire m_down1   = btn_down   | joy1[2];
 wire m_up1     = btn_up     | joy1[3];
 wire m_fire1a  = btn_fireA  | joy1[4];
-//wire m_fire1b  = btn_fireB  | joy1[5];
+wire m_fire1b  = btn_fireB  | joy1[5];
 //wire m_fire1c  = btn_fireC  | joy1[6];
 //wire m_fire1d  = btn_fireD  | joy1[7];
 
@@ -260,7 +263,7 @@ wire m_left2   = btn_left2  | joy2[1];
 wire m_down2   = btn_down2  | joy2[2];
 wire m_up2     = btn_up2    | joy2[3];
 wire m_fire2a  = btn_fire2A | joy2[4];
-//wire m_fire2b  = btn_fire2B | joy2[5];
+wire m_fire2b  = btn_fire2B | joy2[5];
 //wire m_fire2c  = btn_fire2C | joy2[6];
 //wire m_fire2d  = btn_fire2D | joy2[7];
 
@@ -269,7 +272,7 @@ wire m_left    = m_left1  | m_left2;
 wire m_down    = m_down1  | m_down2; 
 wire m_up      = m_up1    | m_up2;   
 wire m_fire_a  = m_fire1a | m_fire2a;
-//wire m_fire_b  = m_fire1b | m_fire2b;
+wire m_fire_b  = m_fire1b | m_fire2b;
 //wire m_fire_c  = m_fire1c | m_fire2c;
 //wire m_fire_d  = m_fire1d | m_fire2d;
 
@@ -318,16 +321,23 @@ popeye popeye
 	.left1(m_left),
 	.up1(m_up),
 	.down1(m_down),
-	.fire1(m_fire_a),
+	.fire10(m_fire_a),
+	.fire11(m_fire_b),
  
 	.right2(m_right),
 	.left2(m_left),
 	.up2(m_up),
 	.down2(m_down),
-	.fire2(m_fire_a),
+	.fire20(m_fire_a),
+	.fire21(m_fire_b),
+	
+	.skyskipr(|mod),
 
-	.sw1({sw[0][6:5],5'b00000}), // not ( "10"  & '1' & "1111"), -- Copyright version (2b) / N.U.(1b) / coinage (4b)
-	.sw2({1'b1,sw[1][6:0]}),     // not ( "00111101"),           -- Cocktail(1b) / Music (1b) / Bonus(2b) / difficulty(2b) / life(2b)
+	              //  ...DCBA
+	.sw1(sw[0]),  //  0000000 --  n.u.(3b hard wired)  / coinage(DCBA)
+	
+	              // PONMLKJI
+	.sw2(sw[1]),  // 11000010 -- Cocktail(1b) / Service(1b) / Bonus(1b) / n.u.(3b) / life(2b)
  
 	.service(sw[2][0])
 );
