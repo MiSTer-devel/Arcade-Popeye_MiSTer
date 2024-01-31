@@ -386,6 +386,35 @@ end popeye;
 
 architecture struct of popeye is
 
+ component T80s is
+ 	generic(
+ 		Mode    : integer := 0; -- 0 => Z80, 1 => Fast Z80, 2 => 8080, 3 => GB
+ 		T2Write : integer := 1; -- 0 => WR_n active in T3, /=0 => WR_n active in T2
+ 		IOWait  : integer := 1  -- 0 => Single cycle I/O, 1 => Std I/O cycle
+ 	);
+ 	port(
+ 		RESET_n : in std_logic;
+ 		CLK     : in std_logic;
+ 		CEN     : in std_logic := '1';
+ 		WAIT_n  : in std_logic := '1';
+ 		INT_n	  : in std_logic := '1';
+ 		NMI_n	  : in std_logic := '1';
+ 		BUSRQ_n : in std_logic := '1';
+ 		M1_n    : out std_logic;
+ 		MREQ_n  : out std_logic;
+ 		IORQ_n  : out std_logic;
+ 		RD_n    : out std_logic;
+ 		WR_n    : out std_logic;
+ 		RFSH_n  : out std_logic;
+ 		HALT_n  : out std_logic;
+ 		BUSAK_n : out std_logic;
+ 		OUT0    : in  std_logic := '0';  -- 0 => OUT(C),0, 1 => OUT(C),255
+ 		A       : out std_logic_vector(15 downto 0);
+ 		DI      : in std_logic_vector(7 downto 0);
+ 		DO      : out std_logic_vector(7 downto 0)
+ 	);
+ end component T80s;
+
  signal reset_n   : std_logic;
  signal clock_vid : std_logic;
  signal clock_vidn: std_logic;
@@ -1096,7 +1125,7 @@ end process;
 ------------------------------
 
 -- microprocessor Z80
-cpu : entity work.T80s
+cpu : component T80s
 generic map(Mode => 0, T2Write => 1, IOWait => 1)
 port map(
   RESET_n => reset_n,
